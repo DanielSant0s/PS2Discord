@@ -74,6 +74,8 @@ const SERVERS_NAV_BACK = 3;
 
 let server_nav_state = SERVERS_NAV_IDLE;
 
+var msg = "";
+
 while(true) {
     old_pad = new_pad;
     new_pad = Pads.get();
@@ -197,13 +199,35 @@ while(true) {
                             break;
                         case SERVERS_NAV_NAVG:
 
-                            for(let i = 0; i < (ch_msgs.length < 14? ch_msgs.length : 14); i++) {
+                            for(let i = 0; i < (ch_msgs.length < 15? ch_msgs.length : 15); i++) {
                                 consola.print(50, 400-(15*i), ch_msgs[i].author.username + " | " + ch_msgs[i].content);
                             }
 
                             if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
                                 server_nav_state++;
                             }
+
+                            if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+                                console.log(msg);
+                                r.asyncPost(`https://discordapp.com/api/channels/${channels[0].id}/messages`, `{"content": "${msg}", "tts": false}`);
+                                while(!r.ready(5)) {
+                                    console.log("Waiting response...");
+                                    System.sleep(5);
+                                }
+
+                                console.log(r.getAsyncData());
+                                
+                                
+                            }
+
+                            if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
+                                msg += String.fromCharCode(kbd_char);
+                            }
+
+                            Draw.rect(50, 80, 300, 30, Color.new(64, 0, 128, 32));
+                            font_bold.print(60, 83, msg);
+
+
                             break;
                         case SERVERS_NAV_BACK:
                             server_nav_state = SERVERS_NAV_IDLE;
