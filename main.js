@@ -14,6 +14,7 @@ function init_drivers() {
 const unsel_color = Color.new(255, 255, 255, 64);
 const sel_color = Color.new(255, 255, 255);
 
+let consola = new Font("fonts/CONSOLA.TTF");
 let font = new Font("fonts/LEMONMILK-Light.otf");
 let font_medium = new Font("fonts/LEMONMILK-Medium.otf");
 let font_bold = new Font("fonts/LEMONMILK-Bold.otf");
@@ -21,6 +22,7 @@ font.color = unsel_color;
 font_bold.scale = 0.55f
 font_medium.scale = 1.0f;
 font.scale = 0.44f;
+consola.scale = 0.35f;
 
 let menu_ptr = 0;
 
@@ -64,6 +66,13 @@ const SERVERS_NAVG = 2;
 const SERVERS_BACK = 2;
 
 let server_state = SERVERS_IDLE;
+
+const SERVERS_NAV_IDLE = 0;
+const SERVERS_NAV_LOAD = 1;
+const SERVERS_NAV_NAVG = 2;
+const SERVERS_NAV_BACK = 3;
+
+let server_nav_state = SERVERS_NAV_IDLE;
 
 while(true) {
     old_pad = new_pad;
@@ -130,7 +139,7 @@ while(true) {
                             loading_state++;
                             break;
                         case LOADING_WAIT:
-                            if(r.ready(2)) {
+                            if(r.ready(5)) {
                                 loading_state++;
                             }
                             break;
@@ -142,27 +151,70 @@ while(true) {
                     }
                     break;
                 case SERVERS_NAVG:
-                    if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
-                        channels.unshift(channels.pop());
-                    }
-                
-                    if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
-                        channels.push(channels.shift());
-                    }
+                    switch(server_nav_state) {
+                        case SERVERS_NAV_IDLE:
+                            if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
+                                channels.unshift(channels.pop());
+                            }
+                        
+                            if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
+                                channels.push(channels.shift());
+                            }
+        
+                            if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+                                server_nav_state++;
+                            }
+        
+                            if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
+                                server_state = SERVERS_IDLE;
+                                app_state = STATE_LOAD;
+                            }
 
-                    if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
-                    }
+                            for(let i = 1; i < (channels.length < 10? channels.length : 10); i++) {
+                                font.print(50, 125+(23*i), channels[i].name);
+                            }
 
-                    if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
-                        server_state = SERVERS_IDLE;
-                        app_state = STATE_LOAD;
+                            break;
+
+                        case SERVERS_NAV_LOAD:
+                            switch(loading_state) {
+                                case LOADING_INIT:
+                                    var ch_msgs = undefined;
+                                    r.asyncGet(`https://discordapp.com/api/channels/${channels[0].id}/messages`);
+                                    loading_state++;
+                                    break;
+                                case LOADING_WAIT:
+                                    if(r.ready(5)) {
+                                        loading_state++;
+                                    }
+                                    break;
+                                case LOADING_END:
+                                    ch_msgs = std.parseExtJSON(r.getAsyncData());
+                                    loading_state = LOADING_INIT;
+                                    server_nav_state++;
+                                    break;
+                            }
+                            break;
+                        case SERVERS_NAV_NAVG:
+
+                            for(let i = 0; i < (ch_msgs.length < 14? ch_msgs.length : 14); i++) {
+                                consola.print(50, 400-(15*i), ch_msgs[i].author.username + " | " + ch_msgs[i].content);
+                            }
+
+                            if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
+                                server_nav_state++;
+                            }
+                            break;
+                        case SERVERS_NAV_BACK:
+                            server_nav_state = SERVERS_NAV_IDLE;
+                            server_state = SERVERS_LOAD;
+                            break;
+
                     }
 
                     font_medium.print(50, 125, channels[0].name);
 
-                    for(let i = 1; i < (channels.length < 10? channels.length : 10); i++) {
-                        font.print(50, 125+(23*i), channels[i].name);
-                    }
+
 
                     break;
             }
