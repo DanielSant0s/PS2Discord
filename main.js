@@ -1,5 +1,3 @@
-
-
 function init_drivers() {
     IOP.reset();
 
@@ -43,7 +41,6 @@ const VK_BACKSPACE = 7;
 const ee_info = System.getCPUInfo();
 
 const r = new Request();
-r.headers = [`Authorization: ${std.loadFile("token.txt")}`];
 
 var channels = undefined;
 
@@ -53,6 +50,13 @@ const STATE_SERVERS = 2;
 const STATE_FRIENDS = 3;
 
 let app_state = STATE_INIT;
+
+const INIT_START = 0;
+const INIT_LOGIN_INPUT = 1;
+const INIT_LOGIN_REQUEST = 2;
+const INIT_END = 3;
+
+let init_state = INIT_START;
 
 const LOADING_INIT = 0;
 const LOADING_WAIT = 1;
@@ -76,6 +80,15 @@ let server_nav_state = SERVERS_NAV_IDLE;
 
 var msg = "";
 
+const auth = {
+    login: "",
+    password: "",
+    undelete: false,
+    captcha_key: null,
+    login_source: null,
+    gift_code_sku_id: null
+}
+
 while(true) {
     old_pad = new_pad;
     new_pad = Pads.get();
@@ -89,8 +102,52 @@ while(true) {
 
     switch(app_state) {
         case STATE_INIT:
-            init_drivers();
-            app_state++;
+            switch(init_state) {
+                case INIT_START:
+                    init_drivers();
+                    init_state++;
+                    break;
+                case INIT_LOGIN_INPUT:
+                    if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
+                        msg += String.fromCharCode(kbd_char);
+                        console.log(kbd_char);
+                        console.log(msg);
+                    }
+
+                    if (kbd_char == VK_RETURN) {
+                        if(auth.login == "") {
+                            auth.login = msg;
+                        } else {
+                            auth.password = msg;
+                            init_state++;
+                        }
+                    }
+
+                    break;
+
+                case INIT_LOGIN_REQUEST:
+                    switch(loading_state) {
+                        case LOADING_INIT:
+                            r.asyncPost("https://discordapp.com/api/auth/login", JSON.stringify(auth));
+                            loading_state++;
+                            break;
+                        case LOADING_WAIT:
+                            if(r.ready(5)) {
+                                loading_state++;
+                            }
+                            break;
+                        case LOADING_END:
+                            console.log("Packet size: " + r.getAsyncSize());
+                            r.headers = [`Authorization: ${std.parseExtJSON(r.getAsyncData()).token}`];
+                            loading_state = LOADING_INIT;
+                            init_state++;
+                            app_state++;
+                            break;
+                    }
+        
+                    break;
+            }
+
             break;
         case STATE_LOAD:
             switch(loading_state) {
