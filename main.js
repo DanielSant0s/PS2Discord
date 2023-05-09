@@ -1,3 +1,47 @@
+class State {
+    _context = null;
+
+    constructor(context) {
+        if (this.constructor === State) {
+            throw new Error("Can't instantiate abstract class!");
+        }
+
+        this._context = context;
+    }
+
+    onInit() {
+        throw new Error("onInit not implemented");
+    }
+
+    onUpdate() {
+        throw new Error("onUpdate not implemented");
+    }
+
+    onRender() {
+        throw new Error("onRender not implemented");
+    }
+}
+
+class StateManager {
+    constructor(context, state) {
+      this._context = context;
+      this._state = state;
+    }
+  
+    setState(newState) {
+      this._state = newState;
+      this._state.onInit();
+    }
+  
+    onUpdate() {
+      this._state.onUpdate();
+    }
+  
+    onRender() {
+      this._state.onRender();
+    }
+}
+  
 
 
 function init_drivers() {
@@ -76,6 +120,8 @@ let server_nav_state = SERVERS_NAV_IDLE;
 
 var msg = "";
 
+var stateManager = new StateManager(this, new InitState(this));
+
 while(true) {
     old_pad = new_pad;
     new_pad = Pads.get();
@@ -86,6 +132,9 @@ while(true) {
     Screen.clear(0x80202020);
 
     font_bold.print(15, 5, "Discord for Playstation 2");
+
+    stateManager.onUpdate();
+    stateManager.onRender();
 
     switch(app_state) {
         case STATE_INIT:
