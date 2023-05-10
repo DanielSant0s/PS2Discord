@@ -190,7 +190,6 @@ class StateServerIdle extends State {
     onInit() {}
     
     onUpdate() {
-        console.log("StateServerIdle.onUpdate")
         if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
             servers.unshift(servers.pop());
         }
@@ -205,7 +204,6 @@ class StateServerIdle extends State {
     }
     
     onRender() {
-        console.log("StateServerIdle.onRender");
         font_medium.print(50, 125, servers[0].name);
 
         for(let i = 1; i < (servers.length < 10? servers.length : 10); i++) {
