@@ -9,6 +9,62 @@ function init_drivers() {
     Network.init();
 }
 
+const logo = new Image("img/logo.png");
+
+const square = new Image("img/square.png");
+const triangle = new Image("img/triangle.png");
+const circle = new Image("img/circle.png");
+const cross = new Image("img/cross.png");
+
+class SeqLoading {
+    padding;
+    color;
+    icons;
+    drawn;
+
+    constructor(icons) {
+        this.icons = icons;
+        this.padding = 20;
+        this.color = Color.new(128, 128, 128, 128);
+
+        this.reset();
+    }
+
+    setScale(s) {
+        this.icons.forEach(img => {    img.width *= s; img.height *= s;    });
+        this.padding *= s;
+    }
+
+    reset() {
+        this.icons.forEach(img => {    img.color = this.color; img.color = Color.setA(img.color, 0);    });
+        this.drawn = 0;
+    }
+
+    draw(posx, posy) {
+        for (let i = 0; i < this.icons.length; i++) {
+            if (Color.getA(this.icons[this.drawn].color) < Color.getA(this.color)) {
+                this.icons[this.drawn].color = Color.setA(this.icons[this.drawn].color, (Color.getA(this.icons[this.drawn].color) + 1));
+            } else {
+                this.drawn++;
+            }
+
+            if (this.drawn == 4) {
+                this.reset();
+            } 
+
+            this.icons[i].draw(posx, posy);
+
+            posx += this.icons[i].width+this.padding;
+        }
+    }
+};
+
+const buttons_loading = new SeqLoading([triangle, circle, cross, square]);
+buttons_loading.setScale(0.25f);
+//buttons_loading.color = Color.new(64, 0, 128, 128);
+buttons_loading.reset();
+
+
 const unsel_color = Color.new(255, 255, 255, 64);
 const sel_color = Color.new(255, 255, 255);
 
@@ -109,7 +165,7 @@ while(true) {
                         let logfile = std.parseExtJSON(std.loadFile("login.json"));
                         auth.login = logfile.login;
                         auth.password = logfile.password;
-                        
+
                         init_state = INIT_LOGIN_REQUEST;
                         
                     } else {
@@ -144,11 +200,13 @@ while(true) {
                             loading_state++;
                             break;
                         case LOADING_WAIT:
+                            buttons_loading.draw(15, 400);
                             if(r.ready(5)) {
                                 loading_state++;
                             }
                             break;
                         case LOADING_END:
+                            buttons_loading.reset();
                             console.log("Packet size: " + r.getAsyncSize());
                             r.headers = [`Authorization: ${std.parseExtJSON(r.getAsyncData()).token}`];
                             loading_state = LOADING_INIT;
@@ -168,11 +226,13 @@ while(true) {
                     loading_state++;
                     break;
                 case LOADING_WAIT:
+                    buttons_loading.draw(15, 400);
                     if(r.ready(5)) {
                         loading_state++;
                     }
                     break;
                 case LOADING_END:
+                    buttons_loading.reset();
                     console.log("Packet size: " + r.getAsyncSize());
                     channels = std.parseExtJSON(r.getAsyncData());
                     loading_state = LOADING_INIT;
@@ -210,11 +270,13 @@ while(true) {
                             loading_state++;
                             break;
                         case LOADING_WAIT:
+                            buttons_loading.draw(15, 400);
                             if(r.ready(5)) {
                                 loading_state++;
                             }
                             break;
                         case LOADING_END:
+                            buttons_loading.reset();
                             channels = std.parseExtJSON(r.getAsyncData());
                             loading_state = LOADING_INIT;
                             server_state++;
@@ -255,11 +317,13 @@ while(true) {
                                     loading_state++;
                                     break;
                                 case LOADING_WAIT:
+                                    buttons_loading.draw(15, 400);
                                     if(r.ready(5)) {
                                         loading_state++;
                                     }
                                     break;
                                 case LOADING_END:
+                                    buttons_loading.reset();
                                     ch_msgs = std.parseExtJSON(r.getAsyncData());
                                     loading_state = LOADING_INIT;
                                     server_nav_state++;
