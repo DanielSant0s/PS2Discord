@@ -105,7 +105,17 @@ while(true) {
             switch(init_state) {
                 case INIT_START:
                     init_drivers();
-                    init_state++;
+                    if (System.doesFileExist("login.json")) {
+                        let logfile = std.parseExtJSON(std.loadFile("login.json"));
+                        auth.login = logfile.login;
+                        auth.password = logfile.password;
+                        
+                        init_state = INIT_LOGIN_REQUEST;
+                        
+                    } else {
+                        init_state++;
+                    }
+                    
                     break;
                 case INIT_LOGIN_INPUT:
                     if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
