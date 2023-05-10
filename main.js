@@ -296,6 +296,64 @@ function init_drivers() {
     Network.init();
 }
 
+const logo = new Image("img/logo.png");
+logo.width *= 0.3f;
+logo.height *= 0.3f;
+
+const square = new Image("img/square.png");
+const triangle = new Image("img/triangle.png");
+const circle = new Image("img/circle.png");
+const cross = new Image("img/cross.png");
+
+class SeqLoading {
+    padding;
+    color;
+    icons;
+    drawn;
+
+    constructor(icons) {
+        this.icons = icons;
+        this.padding = 20;
+        this.color = Color.new(128, 128, 128, 128);
+
+        this.reset();
+    }
+
+    setScale(s) {
+        this.icons.forEach(img => {    img.width *= s; img.height *= s;    });
+        this.padding *= s;
+    }
+
+    reset() {
+        this.icons.forEach(img => {    img.color = this.color; img.color = Color.setA(img.color, 0);    });
+        this.drawn = 0;
+    }
+
+    draw(posx, posy) {
+        for (let i = 0; i < this.icons.length; i++) {
+            if (Color.getA(this.icons[this.drawn].color) < Color.getA(this.color)) {
+                this.icons[this.drawn].color = Color.setA(this.icons[this.drawn].color, (Color.getA(this.icons[this.drawn].color) + 1));
+            } else {
+                this.drawn++;
+            }
+
+            if (this.drawn == 4) {
+                this.reset();
+            } 
+
+            this.icons[i].draw(posx, posy);
+
+            posx += this.icons[i].width+this.padding;
+        }
+    }
+};
+
+const buttons_loading = new SeqLoading([triangle, circle, cross, square]);
+buttons_loading.setScale(0.25f);
+//buttons_loading.color = Color.new(64, 0, 128, 128);
+buttons_loading.reset();
+
+
 const unsel_color = Color.new(255, 255, 255, 64);
 const sel_color = Color.new(255, 255, 255);
 
@@ -328,7 +386,6 @@ const VK_BACKSPACE = 7;
 const ee_info = System.getCPUInfo();
 
 const r = new Request();
-r.headers = [`Authorization: ${std.loadFile("token.txt")}`];
 
 var servers = undefined;
 var channels = undefined;
@@ -340,6 +397,13 @@ const STATE_SERVERS = 2;
 const STATE_FRIENDS = 3;
 
 let app_state = STATE_INIT;
+
+const INIT_START = 0;
+const INIT_LOGIN_INPUT = 1;
+const INIT_LOGIN_REQUEST = 2;
+const INIT_END = 3;
+
+let init_state = INIT_START;
 
 const LOADING_INIT = 0;
 const LOADING_WAIT = 1;
@@ -366,6 +430,19 @@ var msg = "";
 var stateManager = new StateManager();
 stateManager.setState(new InitState(globalThis));
 
+const auth = {
+    login: "",
+    password: "",
+    undelete: false,
+    captcha_key: null,
+    login_source: null,
+    gift_code_sku_id: null
+}
+
+Screen.clear(0x80202020);
+logo.draw(320-logo.width/2, 224-logo.height/2);
+Screen.flip();
+
 while(true) {
     old_pad = new_pad;
     new_pad = Pads.get();
@@ -384,8 +461,66 @@ while(true) {
     // TODO: Remove after state manager implementation
     switch(app_state) {
         case STATE_INIT:
-            init_drivers();
-            app_state++;
+            switch(init_state) {
+                case INIT_START:
+                    init_drivers();
+                    if (System.doesFileExist("login.json")) {
+                        let logfile = std.parseExtJSON(std.loadFile("login.json"));
+                        auth.login = logfile.login;
+                        auth.password = logfile.password;
+
+                        init_state = INIT_LOGIN_REQUEST;
+                        
+                    } else {
+                        init_state++;
+                    }
+                    
+                    break;
+                case INIT_LOGIN_INPUT:
+                    if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
+                        msg += String.fromCharCode(kbd_char);
+                    }
+
+                    if (kbd_char == VK_RETURN) {
+                        if(auth.login == "") {
+                            auth.login = msg;
+                        } else {
+                            auth.password = msg;
+                            init_state++;
+                        }
+
+                        msg = "";
+                    }
+
+                    font_bold.print(60, 83, msg);
+
+                    break;
+
+                case INIT_LOGIN_REQUEST:
+                    switch(loading_state) {
+                        case LOADING_INIT:
+                            r.asyncPost("https://discordapp.com/api/auth/login", JSON.stringify(auth));
+                            loading_state++;
+                            break;
+                        case LOADING_WAIT:
+                            buttons_loading.draw(15, 400);
+                            if(r.ready(5)) {
+                                loading_state++;
+                            }
+                            break;
+                        case LOADING_END:
+                            buttons_loading.reset();
+                            console.log("Packet size: " + r.getAsyncSize());
+                            r.headers = [`Authorization: ${std.parseExtJSON(r.getAsyncData()).token}`];
+                            loading_state = LOADING_INIT;
+                            init_state++;
+                            app_state++;
+                            break;
+                    }
+        
+                    break;
+            }
+
             break;
         case STATE_LOAD:
             switch(loading_state) {
@@ -394,11 +529,13 @@ while(true) {
                     loading_state++;
                     break;
                 case LOADING_WAIT:
+                    buttons_loading.draw(15, 400);
                     if(r.ready(5)) {
                         loading_state++;
                     }
                     break;
                 case LOADING_END:
+                    buttons_loading.reset();
                     console.log("Packet size: " + r.getAsyncSize());
                     channels = std.parseExtJSON(r.getAsyncData());
                     loading_state = LOADING_INIT;
@@ -436,11 +573,13 @@ while(true) {
                             loading_state++;
                             break;
                         case LOADING_WAIT:
+                            buttons_loading.draw(15, 400);
                             if(r.ready(5)) {
                                 loading_state++;
                             }
                             break;
                         case LOADING_END:
+                            buttons_loading.reset();
                             channels = std.parseExtJSON(r.getAsyncData());
                             loading_state = LOADING_INIT;
                             server_state++;
@@ -480,11 +619,13 @@ while(true) {
                                     loading_state++;
                                     break;
                                 case LOADING_WAIT:
+                                    buttons_loading.draw(15, 400);
                                     if(r.ready(5)) {
                                         loading_state++;
                                     }
                                     break;
                                 case LOADING_END:
+                                    buttons_loading.reset();
                                     ch_msgs = std.parseExtJSON(r.getAsyncData());
                                     loading_state = LOADING_INIT;
                                     server_nav_state++;
@@ -542,7 +683,7 @@ while(true) {
             break;
     }
 
-    font.print(15, 420, `Temp: ${System.getTemperature() === undefined? "NaN" : System.getTemperature()} C | RAM Usage: ${Math.floor(System.getMemoryStats().used / 1048576)}MB / ${Math.floor(ee_info.RAMSize / 1048576)}MB`);
+    font.print(15, 420, `Temp: ${System.getTemperature() === undefined? "NaN" : System.getTemperature()} C | RAM Usage: ${Math.floor(System.getMemoryStats().used / 1024)}KB / ${Math.floor(ee_info.RAMSize / 1024)}KB`);
 
     Screen.flip();
 }
