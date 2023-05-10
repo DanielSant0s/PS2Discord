@@ -10,6 +10,8 @@ function init_drivers() {
 }
 
 const logo = new Image("img/logo.png");
+logo.width *= 0.3f;
+logo.height *= 0.3f;
 
 const square = new Image("img/square.png");
 const triangle = new Image("img/triangle.png");
@@ -144,6 +146,10 @@ const auth = {
     login_source: null,
     gift_code_sku_id: null
 }
+
+Screen.clear(0x80202020);
+logo.draw(320-logo.width/2, 224-logo.height/2);
+Screen.flip();
 
 while(true) {
     old_pad = new_pad;
