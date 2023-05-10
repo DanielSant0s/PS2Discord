@@ -1,12 +1,12 @@
 class State {
-    _context = null;
+    context;
 
     constructor(context) {
         if (this.constructor === State) {
             throw new Error("Can't instantiate abstract class!");
         }
 
-        this._context = context;
+        this.context = context;
     }
 
     onInit() {
@@ -23,25 +23,266 @@ class State {
 }
 
 class StateManager {
-    constructor(context, state) {
-      this._context = context;
-      this._state = state;
-    }
-  
     setState(newState) {
-      this._state = newState;
-      this._state.onInit();
+        this._state = newState;
+        this._state.onInit();
     }
   
     onUpdate() {
-      this._state.onUpdate();
+        if(!this._state) throw new Error("State not defined please 'setState'");
+        this._state.onUpdate();
     }
-  
+    
     onRender() {
-      this._state.onRender();
+        if(!this._state) throw new Error("State not defined please 'setState'");
+        this._state.onRender();
     }
 }
-  
+
+class InitState extends State {
+
+    constructor(context){
+        super(context);
+    }
+
+    onInit() {}
+    
+    onUpdate() {
+        init_drivers();
+        app_state = STATE_INIT;
+        stateManager.setState(new StateLoadInit(this.context));
+    }
+
+    onRender() {}
+}
+
+class StateLoadInit extends State {
+
+    constructor(context){
+        super(context);
+    }   
+
+    onInit() {}
+    
+    onUpdate() {
+        r.asyncGet("https://discordapp.com/api/users/@me/guilds");
+        stateManager.setState(new StateLoadWait(this.context));
+    }
+
+    onRender() {}
+}
+
+class StateLoadWait extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(r.ready(5)) { 
+            stateManager.setState(new StateLoadEnd(this.context));    
+        }
+    }
+    
+    onRender() {}
+}
+
+class StateLoadEnd extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        console.log("Packet size: " + r.getAsyncSize());
+        servers = std.parseExtJSON(r.getAsyncData());
+        
+        stateManager.setState(new StateServerIdle(this.context));    
+    }
+
+    onRender() {}
+}
+
+class StateServerIdle extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        console.log("StateServerIdle.onUpdate")
+        if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
+            servers.unshift(servers.pop());
+        }
+    
+        if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
+            servers.push(servers.shift());
+        }
+
+        if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+            stateManager.setState(new StateServerLoadInit(this.context));    
+        }
+    }
+    
+    onRender() {
+        console.log("StateServerIdle.onRender");
+        font_medium.print(50, 125, servers[0].name);
+
+        for(let i = 1; i < (servers.length < 10? servers.length : 10); i++) {
+            font.print(50, 125+(23*i), servers[i].name);
+        }   
+    }
+}
+
+class StateServerLoadInit extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        r.asyncGet(`https://discordapp.com/api/guilds/${servers[0].id}/channels`);
+        stateManager.setState(new StateServerLoadWait(this.context));
+    }
+    
+    onRender() {}
+}
+
+class StateServerLoadWait extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(r.ready(5)) { 
+            stateManager.setState(new StateServerLoadEnd(this.context));    
+        }
+    }
+    
+    onRender() {}
+}
+
+class StateServerLoadEnd extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        console.log("Packet size: " + r.getAsyncSize());
+        channels = std.parseExtJSON(r.getAsyncData());
+        
+        stateManager.setState(new StateServerNavIdle(this.context));    
+    }
+    
+    onRender() {}
+}
+
+class StateServerNavIdle extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
+            channels.unshift(channels.pop());
+        }
+
+        if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
+            channels.push(channels.shift());
+        }
+
+        if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+            stateManager.setState(new StateServerNavLoadInit(this.context));    
+        }
+        
+        if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
+            stateManager.setState(new StateServerIdle(this.context));    
+        }
+
+    }
+    
+    onRender() {
+        font_medium.print(50, 125, channels[0].name);
+
+        for(let i = 1; i < (channels.length < 10? channels.length : 10); i++) {
+            font.print(50, 125+(23*i), channels[i].name);
+        }
+    }
+}
+
+class StateServerNavLoadInit extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        r.asyncGet(`https://discordapp.com/api/channels/${channels[0].id}/messages`);
+        stateManager.setState(new StateServerNavLoadWait(this.context));
+    }
+    
+    onRender() {}
+}
+
+class StateServerNavLoadWait extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(r.ready(5)) { 
+            stateManager.setState(new StateServerNavLoadEnd(this.context));    
+        }
+    }
+    
+    onRender() {}
+}
+
+class StateServerNavLoadEnd extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        ch_msgs = std.parseExtJSON(r.getAsyncData());
+        stateManager.setState(new StateServerNavNavigation(this.context));    
+    }
+    
+    onRender() {}
+}
+
+class StateServerNavNavigation extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
+            stateManager.setState(new StateServerNavIdle(this.context));    
+        }
+
+        if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+            console.log(msg);
+            r.asyncPost(`https://discordapp.com/api/channels/${channels[0].id}/messages`, `{"content": "${msg}", "tts": false}`);
+            while(!r.ready(5)) {
+                console.log("Waiting response...");
+                System.sleep(5);
+            }
+
+            console.log(r.getAsyncData());
+        }
+
+        if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
+            msg += String.fromCharCode(kbd_char);
+        }
+    }
+    
+    onRender() {
+        const messageLimit = ch_msgs.length < 15? ch_msgs.length : 15;
+        for(let i = 0; i < messageLimit; i++) {
+            consola.print(50, 400-(15*i), ch_msgs[i].author.username + " | " + ch_msgs[i].content);
+        }
+
+        Draw.rect(50, 80, 300, 30, Color.new(64, 0, 128, 32));
+        font_bold.print(60, 83, msg);
+    }
+}
+
 
 
 function init_drivers() {
@@ -89,7 +330,9 @@ const ee_info = System.getCPUInfo();
 const r = new Request();
 r.headers = [`Authorization: ${std.loadFile("token.txt")}`];
 
+var servers = undefined;
 var channels = undefined;
+var ch_msgs = undefined;
 
 const STATE_INIT = 0;
 const STATE_LOAD = 1;
@@ -120,7 +363,8 @@ let server_nav_state = SERVERS_NAV_IDLE;
 
 var msg = "";
 
-var stateManager = new StateManager(this, new InitState(this));
+var stateManager = new StateManager();
+stateManager.setState(new InitState(globalThis));
 
 while(true) {
     old_pad = new_pad;
@@ -132,10 +376,12 @@ while(true) {
     Screen.clear(0x80202020);
 
     font_bold.print(15, 5, "Discord for Playstation 2");
+    
+    // TODO: uncoment when the state manager get finished
+    // stateManager.onUpdate();
+    // stateManager.onRender();
 
-    stateManager.onUpdate();
-    stateManager.onRender();
-
+    // TODO: Remove after state manager implementation
     switch(app_state) {
         case STATE_INIT:
             init_drivers();
@@ -230,7 +476,6 @@ while(true) {
                         case SERVERS_NAV_LOAD:
                             switch(loading_state) {
                                 case LOADING_INIT:
-                                    var ch_msgs = undefined;
                                     r.asyncGet(`https://discordapp.com/api/channels/${channels[0].id}/messages`);
                                     loading_state++;
                                     break;
