@@ -110,8 +110,6 @@ while(true) {
                 case INIT_LOGIN_INPUT:
                     if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
                         msg += String.fromCharCode(kbd_char);
-                        console.log(kbd_char);
-                        console.log(msg);
                     }
 
                     if (kbd_char == VK_RETURN) {
@@ -121,7 +119,11 @@ while(true) {
                             auth.password = msg;
                             init_state++;
                         }
+
+                        msg = "";
                     }
+
+                    font_bold.print(60, 83, msg);
 
                     break;
 
@@ -305,7 +307,7 @@ while(true) {
             break;
     }
 
-    font.print(15, 420, `Temp: ${System.getTemperature() === undefined? "NaN" : System.getTemperature()} C | RAM Usage: ${Math.floor(System.getMemoryStats().used / 1048576)}MB / ${Math.floor(ee_info.RAMSize / 1048576)}MB`);
+    font.print(15, 420, `Temp: ${System.getTemperature() === undefined? "NaN" : System.getTemperature()} C | RAM Usage: ${Math.floor(System.getMemoryStats().used / 1024)}KB / ${Math.floor(ee_info.RAMSize / 1024)}KB`);
 
     Screen.flip();
 }
