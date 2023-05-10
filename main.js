@@ -39,7 +39,7 @@ class StateManager {
     }
 }
 
-class InitState extends State {
+class StateInitStart extends State {
 
     constructor(context){
         super(context);
@@ -48,9 +48,96 @@ class InitState extends State {
     onInit() {}
     
     onUpdate() {
+        console.log("StateInitStart.onUpdate");
         init_drivers();
-        app_state = STATE_INIT;
-        stateManager.setState(new StateLoadInit(this.context));
+        if (System.doesFileExist("login.json")) {
+            let logfile = std.parseExtJSON(std.loadFile("login.json"));
+            auth.login = logfile.login;
+            auth.password = logfile.password;
+
+            stateManager.setState(new StateInitLoginRequestInit(this.context));
+        } else {
+            stateManager.setState(new StateInitLoginInput(this.context));
+        }
+    }
+
+    onRender() {}
+}
+
+class StateInitLoginInput extends State {
+
+    constructor(context){
+        super(context);
+    }   
+
+    onInit() {}
+    
+    onUpdate() {
+        if (kbd_char != 0 && kbd_char != VK_RETURN && kbd_char != VK_RETURN && kbd_char != VK_LEFT && kbd_char != VK_RIGHT && kbd_char != VK_NEW_DOWN && kbd_char != VK_NEW_UP ){
+            msg += String.fromCharCode(kbd_char);
+        }
+
+        if (kbd_char == VK_RETURN) {
+            if(auth.login == "") {
+                auth.login = msg;
+            } else {
+                auth.password = msg;
+                stateManager.setState(new StateLoadWait(this.context));
+            }
+
+            msg = "";
+        }
+
+    }
+
+    onRender() {
+        font_bold.print(60, 83, msg);
+    }
+}
+
+class StateInitLoginRequestInit extends State {
+
+    constructor(context){
+        super(context);
+    }   
+
+    onInit() {}
+    
+    onUpdate() {
+        r.asyncPost("https://discordapp.com/api/auth/login", JSON.stringify(auth));
+        stateManager.setState(new StateInitLoginRequestWait(this.context));
+    }
+
+    onRender() {}
+}
+
+class StateInitLoginRequestWait extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        if(r.ready(5)) { 
+            stateManager.setState(new StateInitLoginRequestEnd(this.context));    
+        }
+    }
+    
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
+}
+
+class StateInitLoginRequestEnd extends State {
+    constructor(context){ super(context);}
+
+    onInit() {}
+    
+    onUpdate() {
+        buttons_loading.reset();
+        console.log("Packet size: " + r.getAsyncSize());
+        r.headers = [`Authorization: ${std.parseExtJSON(r.getAsyncData()).token}`];
+        
+        stateManager.setState(new StateLoadInit(this.context));    
     }
 
     onRender() {}
@@ -428,7 +515,7 @@ let server_nav_state = SERVERS_NAV_IDLE;
 var msg = "";
 
 var stateManager = new StateManager();
-stateManager.setState(new InitState(globalThis));
+stateManager.setState(new StateInitStart(globalThis));
 
 const auth = {
     login: "",
