@@ -45,16 +45,12 @@ class StateInitStart extends State {
         super(context);
     }
 
-    onInit() {}
+    onInit() {
+        init_drivers();
+    }
     
     onUpdate() {
-        console.log("StateInitStart.onUpdate");
-        init_drivers();
-        if (System.doesFileExist("login.json")) {
-            let logfile = std.parseExtJSON(std.loadFile("login.json"));
-            auth.login = logfile.login;
-            auth.password = logfile.password;
-
+        if (tryToLogInByToken() || tryToLogInByLogin()) {
             stateManager.setState(new StateInitLoginRequestInit(this.context));
         } else {
             stateManager.setState(new StateInitLoginInput(this.context));
@@ -194,7 +190,6 @@ class StateServerIdle extends State {
     onInit() {}
     
     onUpdate() {
-        console.log("StateServerIdle.onUpdate")
         if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
             servers.unshift(servers.pop());
         }
@@ -209,7 +204,6 @@ class StateServerIdle extends State {
     }
     
     onRender() {
-        console.log("StateServerIdle.onRender");
         font_medium.print(50, 125, servers[0].name);
 
         for(let i = 1; i < (servers.length < 10? servers.length : 10); i++) {
@@ -383,6 +377,35 @@ function init_drivers() {
     Network.init();
 }
 
+/**
+ * Try to set credential by user session token
+ * @returns boolean
+ */
+function tryToLogInByToken(){
+    if(System.doesFileExist("login.json")){
+        let logfile = std.parseExtJSON(std.loadFile("login.json"));
+        if(logfile.token){
+            r.headers = [`Authorization: ${logfile.token}`];
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Try to set credential by user name and password
+ * @returns boolean
+*/
+function tryToLogInByLogin(){
+    if(System.doesFileExist("login.json")){
+        let logfile = std.parseExtJSON(std.loadFile("login.json"));
+        auth.login = logfile.login;
+        auth.password = logfile.password;
+        return true;
+    }
+    return false;
+}
+
 const logo = new Image("img/logo.png");
 logo.width *= 0.3f;
 logo.height *= 0.3f;
@@ -477,40 +500,6 @@ const r = new Request();
 var servers = undefined;
 var channels = undefined;
 var ch_msgs = undefined;
-
-const STATE_INIT = 0;
-const STATE_LOAD = 1;
-const STATE_SERVERS = 2;
-const STATE_FRIENDS = 3;
-
-let app_state = STATE_INIT;
-
-const INIT_START = 0;
-const INIT_LOGIN_INPUT = 1;
-const INIT_LOGIN_REQUEST = 2;
-const INIT_END = 3;
-
-let init_state = INIT_START;
-
-const LOADING_INIT = 0;
-const LOADING_WAIT = 1;
-const LOADING_END = 2;
-
-let loading_state = LOADING_INIT;
-
-const SERVERS_IDLE = 0;
-const SERVERS_LOAD = 1;
-const SERVERS_NAVG = 2;
-const SERVERS_BACK = 2;
-
-let server_state = SERVERS_IDLE;
-
-const SERVERS_NAV_IDLE = 0;
-const SERVERS_NAV_LOAD = 1;
-const SERVERS_NAV_NAVG = 2;
-const SERVERS_NAV_BACK = 3;
-
-let server_nav_state = SERVERS_NAV_IDLE;
 
 var msg = "";
 
