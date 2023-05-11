@@ -201,7 +201,7 @@ class StateInitLoginRequestWait extends State {
     onInit() {}
     
     onUpdate() {
-        if(r.ready(5)) { 
+        if(r.ready()) { 
             stateManager.setState(new StateInitLoginRequestEnd(this.context));    
         }
     }
@@ -249,8 +249,8 @@ class StateLoadWait extends State {
     onInit() {}
     
     onUpdate() {
-        if(r.ready(5)) { 
-            stateManager.setState(new StateLoadEnd(this.context));
+        if(r.ready()) { 
+            stateManager.setState(new StateLoadEnd(this.context));    
         }
     }
     
@@ -392,7 +392,7 @@ class StateServerLoadWait extends State {
     onInit() {}
     
     onUpdate() {
-        if(r.ready(5)) { 
+        if(r.ready()) { 
             stateManager.setState(new StateServerLoadEnd(this.context));    
         }
     }
@@ -501,7 +501,7 @@ class StateServerNavLoadWait extends State {
     onInit() {}
     
     onUpdate() {
-        if(r.ready(5)) { 
+        if(r.ready()) { 
             stateManager.setState(new StateServerNavLoadEnd(this.context));    
         }
     }
@@ -549,7 +549,7 @@ class StateServerNavNavigation extends State {
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
             console.log(msg);
             r.asyncPost(`https://discordapp.com/api/channels/${userData.selectedChannel.id}/messages`, `{"content": "${msg}", "tts": false}`);
-            while(!r.ready(5)) {
+            while(!r.ready()) {
                 console.log("Waiting response...");
                 System.sleep(5);
             }
@@ -743,6 +743,10 @@ var userData = new UserData();
 
 var msg = "";
 
+Screen.clear(0x80202020);
+logo.draw(320-logo.width/2, 224-logo.height/2);
+Screen.flip();
+
 var stateManager = new StateManager();
 stateManager.setState(new StateInitStart(globalThis));
 
@@ -754,10 +758,6 @@ const auth = {
     login_source: null,
     gift_code_sku_id: null
 }
-
-Screen.clear(0x80202020);
-logo.draw(320-logo.width/2, 224-logo.height/2);
-Screen.flip();
 
 while(true) {
     old_pad = new_pad;
