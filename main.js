@@ -296,11 +296,16 @@ class StateServerIdle extends State {
     }
     
     onRender() {
-        font_medium.print(50, 125, userData.guilds[0].name);
+        const stringLimit = 30;
+        font_medium.print(50, 100, limitString(userData.guilds[0].name, stringLimit));
+
+        Draw.rect(50, 140, 462, 10, font.color);
 
         for(let i = 1; i < (userData.guilds.length < 10? userData.guilds.length : 10); i++) {
-            font.print(50, 125+(23*i), userData.guilds[i].name);
+            font.print(50, 125+(23*i), limitString(userData.guilds[i].name, stringLimit));
         }   
+
+        font.print(135, 380, `CROSS - SELECT | UP/DOWN - NAVIGATE | LEFT/RIGHT - FRIENDS`);
     }
 }
 
@@ -516,6 +521,19 @@ function init_drivers() {
     Keyboard.init();
     IOP.loadDefaultModule(IOP.network);
     Network.init();
+}
+
+/**
+ * Helper to truncate string
+ * @returns string
+ */
+function limitString(str, maxLength){  
+    const ellipsis = '...'; 
+    let tempStr = str;
+    if (str.length > maxLength) {
+        tempStr = str.slice(0, maxLength - ellipsis.length) + ellipsis;
+    }
+    return tempStr;
 }
 
 /**
