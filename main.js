@@ -20,6 +20,8 @@ class Guild {
     name = null;
     icon = null;
 
+    imageIcon = null;
+
     categories = [];
     channels = [];
     
@@ -219,13 +221,13 @@ class StateInitLoginRequestEnd extends State {
         console.log("Packet size: " + r.getAsyncSize());
         r.headers = [`Authorization: ${std.parseExtJSON(r.getAsyncData()).token}`];
         
-        stateManager.setState(new StateLoadInit(this.context));    
+        stateManager.setState(new StateLoadGuildsInit(this.context));    
     }
 
     onRender() {}
 }
 
-class StateLoadInit extends State {
+class StateLoadGuildsInit extends State {
 
     constructor(context){
         super(context);
@@ -248,7 +250,7 @@ class StateLoadWait extends State {
     
     onUpdate() {
         if(r.ready(5)) { 
-            stateManager.setState(new StateLoadEnd(this.context));    
+            stateManager.setState(new StateLoadEnd(this.context));
         }
     }
     
@@ -269,10 +271,44 @@ class StateLoadEnd extends State {
             _g.icon = g.icon;
             return _g;
         });
-        stateManager.setState(new StateServerIdle(this.context));    
+        stateManager.setState(new StateLoadGuildIcons(this.context));    
     }
 
     onRender() {}
+}
+
+class StateLoadGuildIcons extends State {
+    constructor(context){ super(context);}
+
+    onInit() {
+        buttons_loading.reset();
+    }
+    
+    onUpdate() {
+        if(r.ready(15)) {
+            console.log("StateLoadGuildIcons.onUpdate");
+            for (let index = 0; index < userData.guilds.length; index++) {
+                const guild = userData.guilds[index];
+                const fname = `cache/${guild.icon}.png`;
+                const url = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=16`;
+
+                if(System.doesFileExist(fname)) {
+                    guild.imageIcon = new Image(fname, VRAM); 
+                    continue;
+                }
+                    
+                console.log("Downloading icon -> ", guild.icon, "from: ", url);
+                r.asyncDownload(url, fname);
+                return;
+            }
+
+            stateManager.setState(new StateServerIdle(this.context));
+        }
+    }
+
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateServerIdle extends State {
@@ -296,15 +332,43 @@ class StateServerIdle extends State {
     }
     
     onRender() {
-        const stringLimit = 30;
-        font_medium.print(50, 100, limitString(userData.guilds[0].name, stringLimit));
+        const stringLimit = 28;
+        const imageIcon = userData.guilds[0].imageIcon;
+        const iconPadding = 5; 
 
+        // Draw guild icon
+        if(imageIcon){
+            imageIcon.width = 32;
+            imageIcon.height = 32;
+            imageIcon.draw(50, 100);
+        }
+
+        //Draw guild name
+        font_medium.print(50 + imageIcon.width + iconPadding, 100, 
+            limitString(userData.guilds[0].name, stringLimit));
+
+        //Draw separator
         Draw.rect(50, 140, 462, 10, font.color);
 
+        // Draw guild list
         for(let i = 1; i < (userData.guilds.length < 10? userData.guilds.length : 10); i++) {
-            font.print(50, 125+(23*i), limitString(userData.guilds[i].name, stringLimit));
+            const tempGuild = userData.guilds[i];
+            const X = 50;
+            const Y = 125 + ( 25 * i)
+            const W = 16;
+            const H = 16;
+            const tempPadding = 5;
+
+            if(tempGuild.imageIcon){
+                tempGuild.imageIcon.width = W;
+                tempGuild.imageIcon.height = H;
+                tempGuild.imageIcon.draw(X, Y + 10);
+            }
+
+            font.print(X + W + tempPadding, Y, limitString(tempGuild.name, stringLimit));
         }   
 
+        // Draw current state structions scrren;
         font.print(135, 380, `CROSS - SELECT | UP/DOWN - NAVIGATE | LEFT/RIGHT - FRIENDS`);
     }
 }
