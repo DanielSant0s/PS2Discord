@@ -265,12 +265,14 @@ class StateLoadEnd extends State {
     onUpdate() {
         console.log("Packet size: " + r.getAsyncSize());
         const rawGuilds = std.parseExtJSON(r.getAsyncData());
-        userData.guilds = rawGuilds.map(g => {
-            const _g = new Guild(g.id);
-            _g.name = g.name;
-            _g.icon = g.icon;
-            return _g;
-        });
+        userData.guilds = rawGuilds
+            .sort((gA, gB) => gA.position - gB.position)
+            .map(g => {
+                const _g = new Guild(g.id);
+                _g.name = g.name;
+                _g.icon = g.icon;
+                return _g;
+            });
         stateManager.setState(new StateLoadGuildIcons(this.context));    
     }
 
@@ -285,7 +287,7 @@ class StateLoadGuildIcons extends State {
     }
     
     onUpdate() {
-        if(r.ready()) {
+        if(r.ready(2, 2)) {
             console.log("StateLoadGuildIcons.onUpdate");
             for (let index = 0; index < userData.guilds.length; index++) {
                 const imageSize = 32;
