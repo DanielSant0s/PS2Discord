@@ -285,12 +285,13 @@ class StateLoadGuildIcons extends State {
     }
     
     onUpdate() {
-        if(r.ready(15)) {
+        if(r.ready()) {
             console.log("StateLoadGuildIcons.onUpdate");
             for (let index = 0; index < userData.guilds.length; index++) {
+                const imageSize = 32;
                 const guild = userData.guilds[index];
                 const fname = `cache/${guild.icon}.png`;
-                const url = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=16`;
+                const url = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=${imageSize}`;
 
                 if(System.doesFileExist(fname)) {
                     guild.imageIcon = new Image(fname, VRAM); 
