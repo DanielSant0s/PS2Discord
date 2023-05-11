@@ -233,7 +233,9 @@ class StateLoadGuildsInit extends State {
         super(context);
     }   
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         r.asyncGet("https://discordapp.com/api/users/@me/guilds");
@@ -246,7 +248,9 @@ class StateLoadGuildsInit extends State {
 class StateLoadWait extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         if(r.ready()) { 
@@ -260,7 +264,9 @@ class StateLoadWait extends State {
 class StateLoadEnd extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         console.log("Packet size: " + r.getAsyncSize());
@@ -276,7 +282,9 @@ class StateLoadEnd extends State {
         stateManager.setState(new StateLoadGuildIcons(this.context));    
     }
 
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateLoadGuildIcons extends State {
@@ -379,14 +387,18 @@ class StateServerIdle extends State {
 class StateServerLoadInit extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         r.asyncGet(`https://discordapp.com/api/guilds/${userData.selectedGuild.id}/channels`);
         stateManager.setState(new StateServerLoadWait(this.context));
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateServerLoadWait extends State {
@@ -400,7 +412,9 @@ class StateServerLoadWait extends State {
         }
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateServerLoadEnd extends State {
@@ -444,7 +458,9 @@ class StateServerLoadEnd extends State {
         stateManager.setState(new StateServerNavIdle(this.context));    
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateServerNavIdle extends State {
