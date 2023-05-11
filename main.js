@@ -1,3 +1,89 @@
+// TODO: move auth data to UserData class
+class UserData {
+    /**
+     * @property
+     * @returns Array of Guild of the logged user
+     */
+    guilds = [];
+
+    selectedGuild = null;
+    selectedCategory = null;
+    selectedChannel = null;
+}
+
+/**
+ * class Guild
+ * @summary Based on https://discord.com/developers/docs/resources/guild#guild-resource
+ */
+class Guild {
+    id = null;
+    name = null;
+    icon = null;
+
+    categories = [];
+    channels = [];
+    
+    constructor(id){
+        this.id = id;
+    }
+}
+
+/**
+ * class ChannelCategory
+ * @summary Based on https://discord.com/developers/docs/resources/channel#channel-object
+ */
+class ChannelCategory {
+    id = null;
+    type = null;
+    name = null;
+    position = null;
+    
+    constructor(id){
+        this.id = id;
+    }
+}
+
+/**
+ * class Channel
+ * @summary Based on https://discord.com/developers/docs/resources/channel#channel-object
+ */
+class Channel {
+    id = null;
+    type = null;
+    name = null;
+    position = null;
+    parent_id = null;
+    guild_id = null;
+
+    /** 
+     * @property messages
+     * @returns array of Message
+     */
+    messages = [];
+
+    constructor(id){
+        this.id = id;
+    }
+}
+
+/**
+ * class Message
+ * @summary Based on https://discord.com/developers/docs/resources/channel#message-object
+ */
+class Message {
+    id = null;
+    channel_id = null;
+    timestamp = null;
+    position = null;
+    content = '';
+    author = null;
+
+    constructor(id){
+        this.id = id;
+    }
+}
+
+
 class State {
     context;
 
@@ -176,8 +262,13 @@ class StateLoadEnd extends State {
     
     onUpdate() {
         console.log("Packet size: " + r.getAsyncSize());
-        servers = std.parseExtJSON(r.getAsyncData());
-        
+        const rawGuilds = std.parseExtJSON(r.getAsyncData());
+        userData.guilds = rawGuilds.map(g => {
+            const _g = new Guild(g.id);
+            _g.name = g.name;
+            _g.icon = g.icon;
+            return _g;
+        });
         stateManager.setState(new StateServerIdle(this.context));    
     }
 
@@ -191,23 +282,24 @@ class StateServerIdle extends State {
     
     onUpdate() {
         if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
-            servers.unshift(servers.pop());
+            userData.guilds.unshift(userData.guilds.pop());
         }
     
         if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
-            servers.push(servers.shift());
+            userData.guilds.push(userData.guilds.shift());
         }
 
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+            userData.selectedGuild = userData.guilds[0];
             stateManager.setState(new StateServerLoadInit(this.context));    
         }
     }
     
     onRender() {
-        font_medium.print(50, 125, servers[0].name);
+        font_medium.print(50, 125, userData.guilds[0].name);
 
-        for(let i = 1; i < (servers.length < 10? servers.length : 10); i++) {
-            font.print(50, 125+(23*i), servers[i].name);
+        for(let i = 1; i < (userData.guilds.length < 10? userData.guilds.length : 10); i++) {
+            font.print(50, 125+(23*i), userData.guilds[i].name);
         }   
     }
 }
@@ -218,7 +310,7 @@ class StateServerLoadInit extends State {
     onInit() {}
     
     onUpdate() {
-        r.asyncGet(`https://discordapp.com/api/guilds/${servers[0].id}/channels`);
+        r.asyncGet(`https://discordapp.com/api/guilds/${userData.selectedGuild.id}/channels`);
         stateManager.setState(new StateServerLoadWait(this.context));
     }
     
@@ -246,8 +338,37 @@ class StateServerLoadEnd extends State {
     
     onUpdate() {
         console.log("Packet size: " + r.getAsyncSize());
-        channels = std.parseExtJSON(r.getAsyncData());
+        const rawChannels = std.parseExtJSON(r.getAsyncData());
         
+        // Change it to add or remove allowed channels 
+        const allowedChannelsTypes = [CHANNELS_TYPES.GUILD_TEXT];
+        
+        // Extract Category channels
+        userData.selectedGuild.categories = rawChannels
+            .filter(cat => cat.type == CHANNELS_TYPES.GUILD_CATEGORY)
+            .map(cat => {
+                const _cat = new ChannelCategory(cat.id);
+                _cat.type = cat.type;
+                _cat.name = cat.name;
+                _cat.position = cat.position;
+
+                return _cat;
+            });        
+
+        // Populate channels by category
+        userData.selectedGuild.channels = rawChannels
+            .filter(ch => allowedChannelsTypes.includes(ch.type))
+            .map(ch => {
+                const _ch = new Channel(ch.id);
+                _ch.type = ch.type;
+                _ch.name = ch.name;
+                _ch.position = ch.position;
+                _ch.parent_id = ch.parent_id;
+                _ch.guild_id = ch.guild_id;
+
+                return _ch;
+            });
+
         stateManager.setState(new StateServerNavIdle(this.context));    
     }
     
@@ -261,24 +382,29 @@ class StateServerNavIdle extends State {
     
     onUpdate() {
         if(Pads.check(new_pad, Pads.UP) && !Pads.check(old_pad, Pads.UP) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_UP) {
-            channels.unshift(channels.pop());
+            userData.selectedGuild.channels.unshift(userData.selectedGuild.channels.pop());
         }
 
         if(Pads.check(new_pad, Pads.DOWN) && !Pads.check(old_pad, Pads.DOWN) || old_kbd_char == VK_ACT && kbd_char == VK_NEW_DOWN){
-            channels.push(channels.shift());
+            userData.selectedGuild.channels.push(userData.selectedGuild.channels.shift());
         }
 
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
+            userData.selectedChannel = userData.selectedGuild.channels[0];
+            if(userData.selectedChannel.parent_id) {
+                userData.selectedCategory = userData.selectedGuild.categories
+                    .find(c => c.id == userData.selectedChannel.parent_id);
+            }
             stateManager.setState(new StateServerNavLoadInit(this.context));    
         }
         
         if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
             stateManager.setState(new StateServerIdle(this.context));    
         }
-
     }
     
     onRender() {
+        const channels = userData.selectedGuild.channels;
         font_medium.print(50, 125, channels[0].name);
 
         for(let i = 1; i < (channels.length < 10? channels.length : 10); i++) {
@@ -293,7 +419,7 @@ class StateServerNavLoadInit extends State {
     onInit() {}
     
     onUpdate() {
-        r.asyncGet(`https://discordapp.com/api/channels/${channels[0].id}/messages`);
+        r.asyncGet(`https://discordapp.com/api/channels/${userData.selectedChannel.id}/messages`);
         stateManager.setState(new StateServerNavLoadWait(this.context));
     }
     
@@ -320,7 +446,21 @@ class StateServerNavLoadEnd extends State {
     onInit() {}
     
     onUpdate() {
-        ch_msgs = std.parseExtJSON(r.getAsyncData());
+        const rawMessages = std.parseExtJSON(r.getAsyncData());
+
+        userData.selectedChannel.messages = rawMessages
+            .sort((ma, mb) => ma.position - mb.position)
+            .map(m => {
+                const _m = new Message(m.id);
+                _m.channel_id = m.channel_id;
+                _m.timestamp = m.timestamp;
+                _m.position = m.position;
+                _m.content = m.content;
+                _m.author = m.author;
+
+                return _m;
+            });
+        
         stateManager.setState(new StateServerNavNavigation(this.context));    
     }
     
@@ -339,7 +479,7 @@ class StateServerNavNavigation extends State {
 
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
             console.log(msg);
-            r.asyncPost(`https://discordapp.com/api/channels/${channels[0].id}/messages`, `{"content": "${msg}", "tts": false}`);
+            r.asyncPost(`https://discordapp.com/api/channels/${userData.selectedChannel.id}/messages`, `{"content": "${msg}", "tts": false}`);
             while(!r.ready(5)) {
                 console.log("Waiting response...");
                 System.sleep(5);
@@ -354,6 +494,7 @@ class StateServerNavNavigation extends State {
     }
     
     onRender() {
+        const ch_msgs = userData.selectedChannel.messages;
         const messageLimit = ch_msgs.length < 15? ch_msgs.length : 15;
         for(let i = 0; i < messageLimit; i++) {
             consola.print(50, 400-(15*i), ch_msgs[i].author.username + " | " + ch_msgs[i].content);
@@ -493,13 +634,30 @@ const VK_LEFT = 42;
 const VK_RETURN = 10;
 const VK_BACKSPACE = 7;
 
+/** 
+ * Channels Types Definitions
+ * Based on https://discord.com/developers/docs/resources/channel#channel-object-channel-types 
+ * */
+const CHANNELS_TYPES = {
+    GUILD_TEXT: 0,
+    DM: 1,
+    GUILD_VOICE: 2,
+    GROUP_DM: 3,
+    GUILD_CATEGORY: 4,
+    GUILD_ANNOUNCEMENT: 5,
+    ANNOUNCEMENT_THREAD: 10, 
+    PUBLIC_THREAD: 11,
+    PRIVATE_THREAD: 12,
+    GUILD_STAGE_VOICE: 13,
+    GUILD_DIRECTORY: 14,
+    GUILD_FORUM: 15
+}
+
 const ee_info = System.getCPUInfo();
 
 const r = new Request();
 
-var servers = undefined;
-var channels = undefined;
-var ch_msgs = undefined;
+var userData = new UserData();
 
 var msg = "";
 
