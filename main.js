@@ -408,7 +408,7 @@ class StateServerLoadWait extends State {
     
     onUpdate() {
         if(r.ready()) { 
-            stateManager.setState(new StateServerLoadEnd(this.context));    
+            stateManager.setState(new StateLoadChannelsFromGuildver(this.context));    
         }
     }
     
@@ -417,7 +417,7 @@ class StateServerLoadWait extends State {
     }
 }
 
-class StateServerLoadEnd extends State {
+class StateLoadChannelsFromGuildver extends State {
     constructor(context){ super(context);}
 
     onInit() {}
@@ -455,7 +455,7 @@ class StateServerLoadEnd extends State {
                 return _ch;
             });
 
-        stateManager.setState(new StateServerNavIdle(this.context));    
+        stateManager.setState(new StateChannelsNavigation(this.context));    
     }
     
     onRender() {
@@ -463,7 +463,7 @@ class StateServerLoadEnd extends State {
     }
 }
 
-class StateServerNavIdle extends State {
+class StateChannelsNavigation extends State {
     constructor(context){ super(context);}
 
     onInit() {}
@@ -483,7 +483,7 @@ class StateServerNavIdle extends State {
                 userData.selectedCategory = userData.selectedGuild.categories
                     .find(c => c.id == userData.selectedChannel.parent_id);
             }
-            stateManager.setState(new StateServerNavLoadInit(this.context));    
+            stateManager.setState(new StateLoadMessagesInit(this.context));    
         }
         
         if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
@@ -501,34 +501,34 @@ class StateServerNavIdle extends State {
     }
 }
 
-class StateServerNavLoadInit extends State {
+class StateLoadMessagesInit extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         r.asyncGet(`https://discordapp.com/api/channels/${userData.selectedChannel.id}/messages`);
-        stateManager.setState(new StateServerNavLoadWait(this.context));
+        stateManager.setState(new StateLoadMessagesWait(this.context));
     }
     
     onRender() {}
 }
 
-class StateServerNavLoadWait extends State {
+class StateLoadMessagesWait extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         if(r.ready()) { 
-            stateManager.setState(new StateServerNavLoadEnd(this.context));    
+            stateManager.setState(new StateLoadMessagesEnd(this.context));    
         }
     }
     
     onRender() {}
 }
 
-class StateServerNavLoadEnd extends State {
+class StateLoadMessagesEnd extends State {
     constructor(context){ super(context);}
 
     onInit() {}
@@ -549,20 +549,20 @@ class StateServerNavLoadEnd extends State {
                 return _m;
             });
         
-        stateManager.setState(new StateServerNavNavigation(this.context));    
+        stateManager.setState(new StateMessagesNavigation(this.context));    
     }
     
     onRender() {}
 }
 
-class StateServerNavNavigation extends State {
+class StateMessagesNavigation extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
-            stateManager.setState(new StateServerNavIdle(this.context));    
+            stateManager.setState(new StateChannelsNavigation(this.context));    
         }
 
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
