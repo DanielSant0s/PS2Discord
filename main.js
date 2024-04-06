@@ -233,7 +233,9 @@ class StateLoadGuildsInit extends State {
         super(context);
     }   
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         r.asyncGet("https://discordapp.com/api/users/@me/guilds");
@@ -246,7 +248,9 @@ class StateLoadGuildsInit extends State {
 class StateLoadWait extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         if(r.ready()) { 
@@ -260,21 +264,27 @@ class StateLoadWait extends State {
 class StateLoadEnd extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         console.log("Packet size: " + r.getAsyncSize());
         const rawGuilds = std.parseExtJSON(r.getAsyncData());
-        userData.guilds = rawGuilds.map(g => {
-            const _g = new Guild(g.id);
-            _g.name = g.name;
-            _g.icon = g.icon;
-            return _g;
-        });
+        userData.guilds = rawGuilds
+            .sort((gA, gB) => gA.position - gB.position)
+            .map(g => {
+                const _g = new Guild(g.id);
+                _g.name = g.name;
+                _g.icon = g.icon;
+                return _g;
+            });
         stateManager.setState(new StateLoadGuildIcons(this.context));    
     }
 
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateLoadGuildIcons extends State {
@@ -285,12 +295,13 @@ class StateLoadGuildIcons extends State {
     }
     
     onUpdate() {
-        if(r.ready(15)) {
+        if(r.ready(2, 2)) {
             console.log("StateLoadGuildIcons.onUpdate");
             for (let index = 0; index < userData.guilds.length; index++) {
+                const imageSize = 32;
                 const guild = userData.guilds[index];
                 const fname = `cache/${guild.icon}.png`;
-                const url = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=16`;
+                const url = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=${imageSize}`;
 
                 if(System.doesFileExist(fname)) {
                     guild.imageIcon = new Image(fname, VRAM); 
@@ -335,29 +346,30 @@ class StateServerIdle extends State {
         const stringLimit = 28;
         const imageIcon = userData.guilds[0].imageIcon;
         const iconPadding = 5; 
+        const baseY = 60;
+        const X = 50;
+        const W = 16;
+        const H = 16;
+        const tempPadding = 5;
 
         // Draw guild icon
         if(imageIcon){
             imageIcon.width = 32;
             imageIcon.height = 32;
-            imageIcon.draw(50, 100);
+            imageIcon.draw(X, baseY);
         }
 
         //Draw guild name
-        font_medium.print(50 + imageIcon.width + iconPadding, 100, 
+        font_medium.print(X + imageIcon.width + iconPadding, baseY, 
             limitString(userData.guilds[0].name, stringLimit));
 
         //Draw separator
-        Draw.rect(50, 140, 462, 10, font.color);
+        Draw.rect(X, baseY + 37, 462, 5, font.color);
 
         // Draw guild list
         for(let i = 1; i < (userData.guilds.length < 10? userData.guilds.length : 10); i++) {
             const tempGuild = userData.guilds[i];
-            const X = 50;
-            const Y = 125 + ( 25 * i)
-            const W = 16;
-            const H = 16;
-            const tempPadding = 5;
+            const Y = 100 + ( 25 * i)
 
             if(tempGuild.imageIcon){
                 tempGuild.imageIcon.width = W;
@@ -376,14 +388,18 @@ class StateServerIdle extends State {
 class StateServerLoadInit extends State {
     constructor(context){ super(context);}
 
-    onInit() {}
+    onInit() {
+        buttons_loading.reset();
+    }
     
     onUpdate() {
         r.asyncGet(`https://discordapp.com/api/guilds/${userData.selectedGuild.id}/channels`);
         stateManager.setState(new StateServerLoadWait(this.context));
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
 class StateServerLoadWait extends State {
@@ -393,14 +409,16 @@ class StateServerLoadWait extends State {
     
     onUpdate() {
         if(r.ready()) { 
-            stateManager.setState(new StateServerLoadEnd(this.context));    
+            stateManager.setState(new StateLoadChannelsFromGuildver(this.context));    
         }
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
-class StateServerLoadEnd extends State {
+class StateLoadChannelsFromGuildver extends State {
     constructor(context){ super(context);}
 
     onInit() {}
@@ -423,10 +441,19 @@ class StateServerLoadEnd extends State {
 
                 return _cat;
             });        
+        
+        const sortByGroupAndPosition = (a, b)=> {
+            if (a.parent_id === b.parent_id){
+                return a.position < b.position ? -1 : 1
+            } else {
+                return a.parent_id < b.parent_id ? -1 : 1
+            }
+        };
 
         // Populate channels by category
         userData.selectedGuild.channels = rawChannels
             .filter(ch => allowedChannelsTypes.includes(ch.type))
+            .sort(sortByGroupAndPosition)
             .map(ch => {
                 const _ch = new Channel(ch.id);
                 _ch.type = ch.type;
@@ -438,13 +465,15 @@ class StateServerLoadEnd extends State {
                 return _ch;
             });
 
-        stateManager.setState(new StateServerNavIdle(this.context));    
+        stateManager.setState(new StateChannelsNavigation(this.context));    
     }
     
-    onRender() {}
+    onRender() {
+        buttons_loading.draw(15, 400);
+    }
 }
 
-class StateServerNavIdle extends State {
+class StateChannelsNavigation extends State {
     constructor(context){ super(context);}
 
     onInit() {}
@@ -464,7 +493,7 @@ class StateServerNavIdle extends State {
                 userData.selectedCategory = userData.selectedGuild.categories
                     .find(c => c.id == userData.selectedChannel.parent_id);
             }
-            stateManager.setState(new StateServerNavLoadInit(this.context));    
+            stateManager.setState(new StateLoadMessagesInit(this.context));    
         }
         
         if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
@@ -474,48 +503,62 @@ class StateServerNavIdle extends State {
     
     onRender() {
         const channels = userData.selectedGuild.channels;
-        font_medium.print(50, 125, channels[0].name);
+        const channelsLimit = 10;
+        const maxChannelList = channels.length < channelsLimit  ? 
+            channels.length : 
+            channelsLimit;
+        const baseY = 60;
 
-        for(let i = 1; i < (channels.length < 10? channels.length : 10); i++) {
-            font.print(50, 125+(23*i), channels[i].name);
+        drawCurrentGuildTitle();
+
+        //Draw separator
+        Draw.rect(50, baseY + 37, 462, 5, font.color);
+            
+        drawCurrentChannelCategory();
+
+        font_medium.print(50, baseY + 75, channels[0].name);
+
+        for(let i = 1; i < maxChannelList; i++) {
+            const Y = 135 + ( 25 * i)
+            font.print(50, Y, channels[i].name);
         }
     }
 }
 
-class StateServerNavLoadInit extends State {
+class StateLoadMessagesInit extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         r.asyncGet(`https://discordapp.com/api/channels/${userData.selectedChannel.id}/messages`);
-        stateManager.setState(new StateServerNavLoadWait(this.context));
+        stateManager.setState(new StateLoadMessagesWait(this.context));
     }
     
     onRender() {}
 }
 
-class StateServerNavLoadWait extends State {
+class StateLoadMessagesWait extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         if(r.ready()) { 
-            stateManager.setState(new StateServerNavLoadEnd(this.context));    
+            stateManager.setState(new StateLoadMessagesEnd(this.context));    
         }
     }
     
     onRender() {}
 }
 
-class StateServerNavLoadEnd extends State {
+class StateLoadMessagesEnd extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
-        const rawMessages = std.parseExtJSON(r.getAsyncData());
+        const rawMessages = std.parseExtJSON(r.getAsyncData()) || [];
 
         userData.selectedChannel.messages = rawMessages
             .sort((ma, mb) => ma.position - mb.position)
@@ -530,20 +573,20 @@ class StateServerNavLoadEnd extends State {
                 return _m;
             });
         
-        stateManager.setState(new StateServerNavNavigation(this.context));    
+        stateManager.setState(new StateMessagesNavigation(this.context));    
     }
     
     onRender() {}
 }
 
-class StateServerNavNavigation extends State {
+class StateMessagesNavigation extends State {
     constructor(context){ super(context);}
 
     onInit() {}
     
     onUpdate() {
         if(Pads.check(new_pad, Pads.TRIANGLE) && !Pads.check(old_pad, Pads.TRIANGLE) || kbd_char == VK_BACKSPACE){
-            stateManager.setState(new StateServerNavIdle(this.context));    
+            stateManager.setState(new StateChannelsNavigation(this.context));    
         }
 
         if(Pads.check(new_pad, Pads.CROSS) && !Pads.check(old_pad, Pads.CROSS) || kbd_char == VK_RETURN){
@@ -575,6 +618,41 @@ class StateServerNavNavigation extends State {
 }
 
 
+
+function drawCurrentGuildTitle() {
+    const stringLimit = 28;
+    const imageIcon = userData.guilds[0].imageIcon;
+    const iconPadding = 5; 
+    const baseY = 60;
+
+    // Draw guild icon
+    if(imageIcon){
+        imageIcon.width = 32;
+        imageIcon.height = 32;
+        imageIcon.draw(50, baseY);
+    }
+
+    //Draw guild name
+    font_medium.print(50 + imageIcon.width + iconPadding, baseY, 
+        limitString(userData.guilds[0].name, stringLimit));
+}
+
+function drawCurrentChannelCategory() {
+    const hoveredChannel = userData.selectedGuild.channels[0];
+    const stringLimit = 28;
+    const X = 50;
+    const Y = 60 + 33;
+
+    if(hoveredChannel.parent_id){   
+        const categoryOfHoveredChannel = userData.selectedGuild.categories.find(cat => {
+            return cat.id ==  hoveredChannel.parent_id;
+        })
+        if(categoryOfHoveredChannel){
+            font.print(X, Y, `(${categoryOfHoveredChannel.name})`);
+        }
+
+    }
+}
 
 function init_drivers() {
     IOP.reset();
